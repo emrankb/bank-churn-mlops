@@ -60,7 +60,7 @@ def test_tracking_runs_and_registry(fitted, tmp_path):
         assert "Fictional0" not in contents
         assert "15500000" not in contents
     alias = client.get_model_version_by_alias(REGISTERED_MODEL_NAME, CHAMPION_ALIAS)
-    assert alias.version == "1"
+    assert str(alias.version) == "1"
     reloaded = mlflow.sklearn.load_model(record["registered_uri"])
     features = synthetic_churn_data(48).drop(
         columns=["CustomerId", "CustomerId.1", "Surname", "Exited"],
@@ -70,7 +70,7 @@ def test_tracking_runs_and_registry(fitted, tmp_path):
     )
     next_record = log_experiment(model, result, tracking_uri=uri)
     assert next_record["registered_version"] == "2"
-    assert client.get_model_version_by_alias(REGISTERED_MODEL_NAME, CHAMPION_ALIAS).version == "2"
+    assert client.str(client.get_model_version_by_alias(REGISTERED_MODEL_NAME, CHAMPION_ALIAS).version) == "2"
 
 
 def test_rejects_non_f1_winner_and_remote_tracking(fitted, tmp_path):
