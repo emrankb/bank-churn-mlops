@@ -16,4 +16,16 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements-dev.txt
       - name: Run synthetic data tests
-        run: python -m pytest -q
+        run: python -m pytest -q --ignore=tests/test_mlflow_integration.py
+
+  mlflow-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install MLflow dependencies
+        run: python -m pip install -r requirements-dev.txt -r requirements-mlflow.txt
+      - name: Test real MLflow registry with invented customer rows
+        run: python -m pytest -q tests/test_mlflow_integration.py
