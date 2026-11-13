@@ -95,6 +95,8 @@ def log_experiment(
                     name="churn_pipeline",
                     registered_model_name=registered_model_name,
                     await_registration_for=120,
+                    serialization_format="skops",
+                    skops_trusted_types=["numpy.dtype"],
                 )
 
     if model_info is None:
