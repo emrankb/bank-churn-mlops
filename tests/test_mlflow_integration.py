@@ -70,7 +70,7 @@ def test_tracking_runs_and_registry(fitted, tmp_path):
     )
     next_record = log_experiment(model, result, tracking_uri=uri)
     assert next_record["registered_version"] == "2"
-    assert client.str(client.get_model_version_by_alias(REGISTERED_MODEL_NAME, CHAMPION_ALIAS).version) == "2"
+    assert str(client.get_model_version_by_alias(REGISTERED_MODEL_NAME, CHAMPION_ALIAS).version) == "2"
 
 
 def test_rejects_non_f1_winner_and_remote_tracking(fitted, tmp_path):
