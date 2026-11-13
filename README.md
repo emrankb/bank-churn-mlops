@@ -8,8 +8,9 @@ models, tracking experiments, and serving a churn prediction API.
 - **Task 1:** Data validation, descriptive analysis, and leakage-safe preprocessing
 - **Task 2:** Model training, cross-validated F1 comparison, held-out metrics,
   and local model artifacts
-- **Tasks 3–4:** MLflow tracking, model registration, FastAPI, Docker, monitoring,
-  and retraining remain for later milestones
+- **Task 3:** Local MLflow experiment tracking, F1-selected model registration,
+  registry versioning, and a `champion` alias
+- **Task 4:** FastAPI, Docker, monitoring, and retraining remain for a later milestone
 
 ## Local setup
 
@@ -53,6 +54,25 @@ Local outputs are excluded from Git:
 Model files saved through joblib should only be loaded from trusted sources.
 The format uses pickle under the hood and is not safe for untrusted input.
 
+## MLflow experiment tracking
+
+MLflow logs the three classifier candidates, their training-fold metrics and
+parameters, and the held-out metrics of the selected model. The selected
+pipeline is registered locally as `bank-churn-classifier` with a version and
+`champion` alias. The SQLite tracking database and model artifacts are
+private local files, never committed.
+
+```bash
+python -m pip install -r requirements-dev.txt -r requirements-mlflow.txt
+python -m scripts.track_experiments
+mlflow ui --backend-store-uri sqlite:///artifacts/mlflow.db --host 127.0.0.1 --port 5000
+```
+
+Browse `http://127.0.0.1:5000` in the local environment for side-by-side
+experiment runs. This command trains the model and makes no external model
+API calls. See `docs/mlflow_tracking.md` for registry versions, privacy
+notes, and the local database.
+
 ## Tests
 
 ```bash
@@ -62,6 +82,7 @@ python -m pytest -q
 GitHub Actions runs synthetic-data tests without the private customer CSV or
 paid services. CI pass counts are software tests, **not real-data prediction
 metrics**. The final churn-model scores require a local run against the
-original dataset. No MLflow experiment results have been claimed yet.
+original dataset. CI tests MLflow integration against invented customer rows. No MLflow scores
+from the private original dataset have been claimed yet.
 
 See `docs/data_preparation.md` and `docs/model_training.md` for details.
