@@ -1,0 +1,11 @@
+**
+!Dockerfile
+!requirements.txt
+!requirements-api.txt
+!bank_churn/
+!bank_churn/*.py
+!scripts/
+!scripts/__init__.py
+!scripts/serve_api.py
+**/__pycache__/
+**/*.pyc
