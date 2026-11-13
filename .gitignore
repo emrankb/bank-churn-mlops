@@ -1,0 +1,22 @@
+# Private customer data and local model artifacts
+/data/raw/*
+!/data/raw/.gitkeep
+/artifacts/
+/mlruns/
+/mlartifacts/
+/reports/
+*.joblib
+*.pkl
+*.onnx
+.env
+.env.*
+*.key
+*.pem
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.DS_Store
