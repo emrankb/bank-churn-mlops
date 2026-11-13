@@ -6,7 +6,7 @@ sent to GitHub Actions. Every retraining event logs a new local MLflow version.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import time
@@ -27,12 +27,15 @@ def run_cycle(
     tracking_database: Path | None = None,
     allow_retraining: bool = False,
     accuracy_drop: float = 0.05,
+    cooldown_hours: float = 24.0,
     now: datetime | None = None,
 ) -> dict:
     """One monitoring cycle; retrain only on a measured drop and explicit opt-in."""
     now = now or datetime.now(timezone.utc)
     if now.tzinfo is None:
         raise ValueError("Monitoring time must have a timezone.")
+    if cooldown_hours < 0:
+        raise ValueError("Retraining cooldown cannot be negative.")
     baseline = json.loads(metrics_path.read_text(encoding="utf-8"))
     baseline_accuracy = float(baseline["test_metrics"]["accuracy"])
     reference = load_churn_data(reference_path)
@@ -45,12 +48,22 @@ def run_cycle(
     report["checked_at_utc"] = now.astimezone(timezone.utc).isoformat()
     report["retraining_executed"] = False
     report["retraining_skip_reason"] = None
+    state_file = report_dir / "last_retrained.json"
+    last_retrained = None
+    if state_file.exists():
+        state = json.loads(state_file.read_text(encoding="utf-8"))
+        last_retrained = datetime.fromisoformat(state["completed_at_utc"])
+        if last_retrained.tzinfo is None:
+            raise ValueError("Invalid retraining state timestamp.")
 
     if report["retraining_recommended"]:
         if not allow_retraining:
             report["retraining_skip_reason"] = "not_authorized"
         elif retraining_input is None or tracking_database is None:
             report["retraining_skip_reason"] = "missing_labeled_training_input_or_tracking"
+        elif (last_retrained is not None and
+              now - last_retrained < timedelta(hours=cooldown_hours)):
+            report["retraining_skip_reason"] = "cooldown_active"
         else:
             from bank_churn.experiment_tracking import local_tracking_uri, log_experiment
             from bank_churn.training import save_training_artifacts, train_and_compare
@@ -66,6 +79,11 @@ def run_cycle(
             report["retraining_executed"] = True
             report["registered_version"] = tracked["registered_version"]
             report["retrained_model_path"] = str(dest / "model.joblib")
+            state_file.parent.mkdir(parents=True, exist_ok=True)
+            state_file.write_text(json.dumps({
+                "completed_at_utc": now.astimezone(timezone.utc).isoformat(),
+                "registered_version": tracked["registered_version"],
+            }) + "\n", encoding="utf-8")
 
     report_dir.mkdir(parents=True, exist_ok=True)
     path = report_dir / ("monitor-" + now.strftime("%Y%m%dT%H%M%S%fZ") + ".json")
@@ -88,6 +106,7 @@ def main() -> int:
     parser.add_argument("--tracking-database", type=Path, default=Path("artifacts/mlflow.db"))
     parser.add_argument("--allow-retraining", action="store_true")
     parser.add_argument("--accuracy-drop", type=float, default=0.05)
+    parser.add_argument("--cooldown-hours", type=float, default=24.0)
     parser.add_argument("--interval-minutes", type=int, default=0,
                         help="0 runs once; positive values keep checking on a local schedule")
     args = parser.parse_args()
@@ -109,6 +128,7 @@ def main() -> int:
                 tracking_database=args.tracking_database,
                 allow_retraining=args.allow_retraining,
                 accuracy_drop=args.accuracy_drop,
+                cooldown_hours=args.cooldown_hours,
             )
             print(
                 "Observed accuracy:", report["observed_accuracy"],
