@@ -66,7 +66,8 @@ def validate_churn_data(frame: pd.DataFrame) -> pd.DataFrame:
     if (data["Age"].dropna() == 0).any():
         raise ValueError("Age must be greater than zero.")
     for field in CATEGORICAL:
-        data[field] = data[field].astype("string").str.strip()
+        clean = data[field].astype("string").str.strip()
+        data[field] = clean.astype(object).where(clean.notna(), float("nan"))
         if (data[field].dropna() == "").any():
             raise ValueError(f"{field} has empty category labels.")
     return data
