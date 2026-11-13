@@ -10,7 +10,8 @@ models, tracking experiments, and serving a churn prediction API.
   and local model artifacts
 - **Task 3:** Local MLflow experiment tracking, F1-selected model registration,
   registry versioning, and a `champion` alias
-- **Task 4:** FastAPI, Docker, monitoring, and retraining remain for a later milestone
+- **Task 4:** Local FastAPI prediction API, Docker deployment, labeled-batch monitoring,
+  and an opt-in scheduled retraining workflow
 
 ## Local setup
 
@@ -86,3 +87,57 @@ original dataset. CI tests MLflow integration against invented customer rows. No
 from the private original dataset have been claimed yet.
 
 See `docs/data_preparation.md` and `docs/model_training.md` for details.
+
+## Prediction API and monitoring
+
+After training a local model using `python -m scripts.train_models`:
+
+```bash
+python -m pip install -r requirements-api.txt
+python -m scripts.serve_api
+```
+
+The FastAPI service listens at `127.0.0.1:8000`. Visit `/docs` for the
+prediction input schema and `/health` for readiness. `POST /predict`
+accepts the ten model features and returns a binary churn prediction and
+estimated churn probability. Requests with customer IDs, names or outcome
+labels are rejected. The service does not log customer request bodies.
+
+To build the Docker image and serve the locally trained model without
+including it in the image:
+
+```bash
+docker build -t bank-churn-mlops .
+docker run --rm -p 127.0.0.1:8000:8000 \
+  -v "$(pwd)/artifacts/churn-model:/app/artifacts/churn-model:ro" \
+  bank-churn-mlops
+```
+
+Monitoring uses a separate recent CSV containing *known* churn outcomes.
+It compares observed accuracy with the saved test baseline and computes
+simple feature-distribution shift indicators:
+
+```bash
+python -m scripts.monitor_and_retrain --observed data/raw/recent_labeled.csv
+```
+
+For local hourly checks with retraining after an accuracy drop, supply an
+approved fresh labeled training CSV and opt in explicitly:
+
+```bash
+python -m pip install -r requirements-mlflow.txt
+python -m scripts.monitor_and_retrain \
+  --observed data/raw/recent_labeled.csv \
+  --retraining-input data/raw/fresh_training.csv \
+  --allow-retraining --interval-minutes 60
+```
+
+The scheduling process must remain running; this is **not a hosted
+monitoring service**. Retrained models enter the local MLflow registry,
+but the serving model does not automatically change without operator
+approval. Local data, model files, and reports stay ignored by Git.
+See `docs/deployment_monitoring.md` for details and limitations.
+
+The API and monitoring tests use fictional rows. Docker is built in CI
+without any private dataset or fitted model. Real-data accuracy, drift
+and retraining performance still require separately approved local inputs.
