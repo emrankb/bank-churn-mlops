@@ -16,7 +16,7 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements-dev.txt
       - name: Run synthetic data tests
-        run: python -m pytest -q --ignore=tests/test_mlflow_integration.py
+        run: python -m pytest -q --ignore=tests/test_mlflow_integration.py --ignore=tests/test_api_monitoring.py
 
   mlflow-integration:
     runs-on: ubuntu-latest
@@ -29,3 +29,24 @@ jobs:
         run: python -m pip install -r requirements-dev.txt -r requirements-mlflow.txt
       - name: Test real MLflow registry with invented customer rows
         run: python -m pytest -q tests/test_mlflow_integration.py
+
+  api-and-monitoring:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install API and local monitoring dependencies
+        run: python -m pip install -r requirements-dev.txt -r requirements-api.txt -r requirements-mlflow.txt
+      - name: Run API and monitoring integration tests
+        run: python -m pytest -q tests/test_api_monitoring.py
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build container without private data or model artifacts
+        run: docker build --tag bank-churn-api-ci .
+      - name: Verify application CLI exists in container
+        run: docker run --rm bank-churn-api-ci python -m scripts.serve_api --help
